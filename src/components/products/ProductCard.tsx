@@ -19,7 +19,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
     formatCurrency,
   } = useStore();
 
-  const [imageError, setImageError] = useState(false);
+  const [imageIndex, setImageIndex] = useState(0);
+  const [useFallback, setUseFallback] = useState(false);
   const [quickAddFeedback, setQuickAddFeedback] = useState(false);
 
   const isFavorite = isInWishlist(product.id);
@@ -54,8 +55,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
     ? 'Casquette'
     : 'Nouveau';
 
-  const rawImage = product.images[0] || '';
-  const optimizedImage = getOptimizedImageUrl(rawImage, { width: 500, quality: 80 });
+  const rawImage = !useFallback ? (product.images[imageIndex] || product.images[0] || '') : '';
+  const optimizedImage = getOptimizedImageUrl(rawImage, {
+    width: 500,
+    quality: 85,
+    category: product.category,
+  });
+
+  const handleImageError = () => {
+    if (product.images && product.images.length > imageIndex + 1) {
+      setImageIndex((prev) => prev + 1);
+    } else {
+      setUseFallback(true);
+    }
+  };
 
   // Quick add to cart using the first in-stock variant
   const handleQuickAdd = (e: React.MouseEvent) => {
@@ -88,26 +101,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
     >
       {/* Product Image Area */}
       <div className="relative aspect-[3/4] bg-[#121212] overflow-hidden">
-        {!imageError && optimizedImage ? (
-          <img
-            src={optimizedImage}
-            alt={`${product.name} (${product.category}) - HP COLLECTION Bénin`}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
-            loading="lazy"
-            decoding="async"
-            width="400"
-            height="533"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-[#141414] text-[#777D86]">
-            <ShoppingBag className="w-8 h-8 text-[#C7A747]/60 mb-2" />
-            <span className="text-[11px] font-mono text-center text-[#F4F1E9]/80 font-bold uppercase line-clamp-1">
-              {product.name}
-            </span>
-            <span className="text-[10px] text-[#C7A747] font-mono mt-1">HP COLLECTION</span>
-          </div>
-        )}
+        <img
+          src={optimizedImage}
+          alt={`${product.name} (${product.category}) - HP COLLECTION Bénin`}
+          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+          loading="lazy"
+          decoding="async"
+          width="400"
+          height="533"
+          onError={handleImageError}
+        />
 
         {/* Minimal Badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10 font-mono text-[9px] uppercase tracking-wider">

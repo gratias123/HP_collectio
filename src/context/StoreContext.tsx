@@ -7,7 +7,12 @@ import {
   StoreSettings,
   Order,
 } from '../types';
-import { CATEGORIES } from '../data/initialData';
+import {
+  CATEGORIES,
+  INITIAL_PRODUCTS,
+  INITIAL_DELIVERY_ZONES,
+  INITIAL_STORE_SETTINGS,
+} from '../data/initialData';
 import { api } from '../services/api';
 import { updatePageSEO } from '../utils/seo';
 
@@ -89,8 +94,8 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
+  const [products, setProducts] = useState<Product[]>(() => INITIAL_PRODUCTS);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(false);
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null);
 
   // Cart
@@ -117,8 +122,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   // Delivery & Settings
-  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
-  const [settings, setSettings] = useState<StoreSettings | null>(null);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(() => INITIAL_DELIVERY_ZONES);
+  const [settings, setSettings] = useState<StoreSettings | null>(() => INITIAL_STORE_SETTINGS);
 
   // Promo Code
   const [appliedPromo, setAppliedPromo] = useState<{
@@ -220,26 +225,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Load Products
   const refreshProducts = useCallback(async () => {
-    setIsLoadingProducts(true);
     try {
       const data = await api.getProducts();
-      setProducts(data.products || []);
+      if (data && Array.isArray(data.products) && data.products.length > 0) {
+        setProducts(data.products);
+      }
     } catch (err: any) {
-      console.error('Failed to load products', err);
-      showToast('Impossible de charger les produits. Vérifiez votre connexion.', 'error');
+      console.warn('Background refresh for products silent fallback:', err);
+      setProducts((current) => (current && current.length > 0 ? current : INITIAL_PRODUCTS));
     } finally {
       setIsLoadingProducts(false);
     }
-  }, [showToast]);
+  }, []);
 
   // Load Settings & Delivery Zones
   const refreshSettings = useCallback(async () => {
     try {
       const [settingsData, zonesData] = await Promise.all([api.getSettings(), api.getDeliveryZones()]);
-      setSettings(settingsData.settings);
-      setDeliveryZones(zonesData.zones || []);
+      if (settingsData?.settings) {
+        setSettings(settingsData.settings);
+      }
+      if (zonesData?.zones && zonesData.zones.length > 0) {
+        setDeliveryZones(zonesData.zones);
+      }
     } catch (err) {
-      console.error('Failed to load settings or delivery zones', err);
+      console.warn('Failed to load settings or delivery zones, keeping defaults:', err);
     }
   }, []);
 

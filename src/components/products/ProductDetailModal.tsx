@@ -253,6 +253,13 @@ export const ProductDetailModal: React.FC = () => {
                 }
                 className="w-full h-full object-cover object-center"
                 decoding="async"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  const fallback = '/assets/aistudio/1793196164363_1__528b35f1.jpg';
+                  if (!target.src.includes('1793196164363_1__528b35f1.jpg')) {
+                    target.src = fallback;
+                  }
+                }}
               />
 
               {/* Promo badge */}

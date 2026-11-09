@@ -9,6 +9,12 @@ import {
   OrderPaymentStatus,
   CategoryInfo,
 } from '../types';
+import {
+  INITIAL_PRODUCTS,
+  INITIAL_DELIVERY_ZONES,
+  INITIAL_STORE_SETTINGS,
+  CATEGORIES,
+} from '../data/initialData';
 
 const API_BASE = '/api';
 
@@ -50,17 +56,46 @@ export const api = {
     featured?: boolean;
     sort?: string;
   }): Promise<{ products: Product[]; total: number }> {
-    const query = new URLSearchParams();
-    if (params?.category) query.set('category', params.category);
-    if (params?.search) query.set('search', params.search);
-    if (params?.minPrice) query.set('minPrice', params.minPrice.toString());
-    if (params?.maxPrice) query.set('maxPrice', params.maxPrice.toString());
-    if (params?.status) query.set('status', params.status);
-    if (params?.featured) query.set('featured', 'true');
-    if (params?.sort) query.set('sort', params.sort);
+    try {
+      const query = new URLSearchParams();
+      if (params?.category) query.set('category', params.category);
+      if (params?.search) query.set('search', params.search);
+      if (params?.minPrice) query.set('minPrice', params.minPrice.toString());
+      if (params?.maxPrice) query.set('maxPrice', params.maxPrice.toString());
+      if (params?.status) query.set('status', params.status);
+      if (params?.featured) query.set('featured', 'true');
+      if (params?.sort) query.set('sort', params.sort);
 
-    const qs = query.toString();
-    return request<{ products: Product[]; total: number }>(`/products${qs ? `?${qs}` : ''}`);
+      const qs = query.toString();
+      const res = await request<{ products: Product[]; total: number }>(`/products${qs ? `?${qs}` : ''}`);
+      if (res && Array.isArray(res.products) && res.products.length > 0) {
+        return res;
+      }
+      return { products: INITIAL_PRODUCTS, total: INITIAL_PRODUCTS.length };
+    } catch (err) {
+      console.warn('API getProducts unavailable, using local catalog data fallback:', err);
+      let items = [...INITIAL_PRODUCTS];
+      if (params?.category && params.category !== 'all') {
+        items = items.filter((p) => p.category === params.category);
+      }
+      if (params?.search && params.search.trim()) {
+        const q = params.search.toLowerCase().trim();
+        items = items.filter(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            p.sku.toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q) ||
+            p.category.toLowerCase().includes(q)
+        );
+      }
+      if (params?.minPrice && !isNaN(params.minPrice)) {
+        items = items.filter((p) => (p.salePrice || p.price) >= params.minPrice!);
+      }
+      if (params?.maxPrice && !isNaN(params.maxPrice)) {
+        items = items.filter((p) => (p.salePrice || p.price) <= params.maxPrice!);
+      }
+      return { products: items, total: items.length };
+    }
   },
 
   async getProduct(id: string): Promise<{ product: Product }> {
@@ -142,7 +177,13 @@ export const api = {
 
   // Categories
   async getCategories(): Promise<{ categories: CategoryInfo[] }> {
-    return request<{ categories: CategoryInfo[] }>('/categories');
+    try {
+      const res = await request<{ categories: CategoryInfo[] }>('/categories');
+      if (res && res.categories && res.categories.length > 0) return res;
+      return { categories: CATEGORIES };
+    } catch {
+      return { categories: CATEGORIES };
+    }
   },
 
   async createCategory(
@@ -177,7 +218,13 @@ export const api = {
 
   // Delivery Zones
   async getDeliveryZones(): Promise<{ zones: DeliveryZone[] }> {
-    return request<{ zones: DeliveryZone[] }>('/delivery-zones');
+    try {
+      const res = await request<{ zones: DeliveryZone[] }>('/delivery-zones');
+      if (res && res.zones && res.zones.length > 0) return res;
+      return { zones: INITIAL_DELIVERY_ZONES };
+    } catch {
+      return { zones: INITIAL_DELIVERY_ZONES };
+    }
   },
 
   async createDeliveryZone(zone: Partial<DeliveryZone>, token: string): Promise<{ zone: DeliveryZone; message: string }> {
@@ -378,7 +425,13 @@ export const api = {
 
   // Store Settings
   async getSettings(): Promise<{ settings: StoreSettings }> {
-    return request('/settings');
+    try {
+      const res = await request<{ settings: StoreSettings }>('/settings');
+      if (res && res.settings) return res;
+      return { settings: INITIAL_STORE_SETTINGS };
+    } catch {
+      return { settings: INITIAL_STORE_SETTINGS };
+    }
   },
 
   async updateSettings(settings: Partial<StoreSettings>, token: string): Promise<{ settings: StoreSettings; message: string }> {
