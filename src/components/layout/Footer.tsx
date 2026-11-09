@@ -17,61 +17,6 @@ export const Footer: React.FC = () => {
 
   return (
     <footer className="bg-[#101010] border-t border-[#222222] text-[#777D86] text-xs mt-20">
-      {/* Sleek Reassurance Bar (Typographic, no loud icon boxes) */}
-      <div className="border-b border-[#1f1f1f] bg-[#141414]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-left">
-            <div className="space-y-1.5 border-t border-[#262626] pt-3">
-              <span className="font-mono text-[10px] text-[#C7A747] uppercase tracking-widest block font-bold">
-                01 • Service
-              </span>
-              <span className="text-[#F4F1E9] font-bold text-xs uppercase tracking-wider block font-heading">
-                Livraison Rapide
-              </span>
-              <p className="text-[11px] text-[#777D86] leading-relaxed">
-                Livraison directe à votre adresse ou expédition soignée dans toutes les villes.
-              </p>
-            </div>
-
-            <div className="space-y-1.5 border-t border-[#262626] pt-3">
-              <span className="font-mono text-[10px] text-[#C7A747] uppercase tracking-widest block font-bold">
-                02 • Confiance
-              </span>
-              <span className="text-[#F4F1E9] font-bold text-xs uppercase tracking-wider block font-heading">
-                Paiement à Réception
-              </span>
-              <p className="text-[11px] text-[#777D86] leading-relaxed">
-                Réglez en espèces ou Mobile Money au livreur lors de la remise.
-              </p>
-            </div>
-
-            <div className="space-y-1.5 border-t border-[#262626] pt-3">
-              <span className="font-mono text-[10px] text-[#C7A747] uppercase tracking-widest block font-bold">
-                03 • Standards
-              </span>
-              <span className="text-[#F4F1E9] font-bold text-xs uppercase tracking-wider block font-heading">
-                Qualité Certifiée
-              </span>
-              <p className="text-[11px] text-[#777D86] leading-relaxed">
-                Toiles de coton peigné lourdes, cuirs souples et finitions durables.
-              </p>
-            </div>
-
-            <div className="space-y-1.5 border-t border-[#262626] pt-3">
-              <span className="font-mono text-[10px] text-[#C7A747] uppercase tracking-widest block font-bold">
-                04 • Sérénité
-              </span>
-              <span className="text-[#F4F1E9] font-bold text-xs uppercase tracking-wider block font-heading">
-                Échange de Taille 48h
-              </span>
-              <p className="text-[11px] text-[#777D86] leading-relaxed">
-                Essayage à la livraison et remplacement de taille rapide garanti.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Footer Minimal Brand & Care Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">

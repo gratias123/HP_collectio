@@ -849,35 +849,11 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </form>
 
-          {/* Quick 1-click test credentials helper */}
-          <div className="pt-3 border-t border-[#262626] space-y-2">
-            <span className="text-[10px] uppercase font-mono tracking-wider text-[#777D86] block text-center">
-              Identifiants de test préconfigurés :
+          {/* Secure Admin Note */}
+          <div className="pt-3 border-t border-[#262626] text-center">
+            <span className="text-[10px] uppercase font-mono tracking-wider text-[#777D86]">
+              Portail sécurisé • Sessions chiffrées • Protection anti-bruteforce
             </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthEmail('admin@hpcollection.bj');
-                  setAuthPassword('AdminHP2026!');
-                }}
-                className="flex-1 p-2 bg-[#181818] hover:bg-[#222222] border border-[#333333] hover:border-[#C7A747] rounded-xs text-[10px] font-mono text-[#F4F1E9] text-left transition-colors cursor-pointer"
-              >
-                <strong className="text-[#C7A747] block truncate">admin@hpcollection.bj</strong>
-                <span className="text-[#888]">Pass : AdminHP2026!</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthEmail('semakodeogratias64@gmail.com');
-                  setAuthPassword('AdminHP2026!');
-                }}
-                className="flex-1 p-2 bg-[#181818] hover:bg-[#222222] border border-[#333333] hover:border-[#C7A747] rounded-xs text-[10px] font-mono text-[#F4F1E9] text-left transition-colors cursor-pointer"
-              >
-                <strong className="text-[#C7A747] block truncate">semakodeogratias...</strong>
-                <span className="text-[#888]">Pass : AdminHP2026!</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>

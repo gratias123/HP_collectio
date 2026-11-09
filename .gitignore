@@ -9,6 +9,9 @@ coverage/
 !.env.production.example
 backups/
 data/store.pre-restore*
+data/store.tmp.*
+data/backups/
+data/*.sql
 .aistudio/
 .tempmediaStorage/
 

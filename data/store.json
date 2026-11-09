@@ -5448,28 +5448,7 @@
       "passwordHash": "90cb80fce36b0f251cd03a72a4558c1724f7cd6343ae386b9ecda6e2711a93782abfd9d1e420f07f7152d375fc2a77d7ae53eb04865237afb5abca092d1969ff",
       "salt": "c8bf07abffb582d4bfcffe76990e5a22",
       "createdAt": "2026-10-28T17:47:50.972Z"
-    },
-    {
-      "id": "admin-default-root",
-      "email": "admin@hpcollection.bj",
-      "fullName": "Directeur HP COLLECTION",
-      "passwordHash": "4f18a32beb7383ae0477493f6f27fe8399bce926d5299cfff5f33b7d82c731a91fd9b538f08220068caf3555b4a39e5896529a8417b0524b10cae8db2b3934c2",
-      "salt": "d79444beee9c435200f6d5b7734976ed",
-      "createdAt": "2026-10-29T19:49:20.802Z"
     }
   ],
-  "sessions": [
-    {
-      "token": "c82c800864ac3ffb421df34fd47bf41eed6e6c07232f64d07ae2328f18217dde",
-      "userId": "admin-default-root",
-      "role": "admin",
-      "expiresAt": 1794831994303
-    },
-    {
-      "token": "572037e43fb95d433e5c46e7a2a6c89c0f7a4209ab2044c68276517cc1e51fe9",
-      "userId": "admin-default-root",
-      "role": "admin",
-      "expiresAt": 1794834183333
-    }
-  ]
+  "sessions": []
 }

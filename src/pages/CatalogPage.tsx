@@ -31,7 +31,12 @@ export const CatalogPage: React.FC = () => {
   // Extract all available sizes in catalog
   const allSizes = useMemo(() => {
     const set = new Set<string>();
-    products.forEach((p) => p.sizes?.forEach((s) => set.add(s)));
+    products.forEach((p) => {
+      p.sizes?.forEach((s) => set.add(s));
+      p.variants?.forEach((v) => {
+        if (v.size && v.stock > 0) set.add(v.size);
+      });
+    });
     return Array.from(set).sort((a, b) => {
       // Natural sorting for clothes (S, M, L, XL) vs numbers (40, 41)
       const numA = parseInt(a, 10);
@@ -84,9 +89,13 @@ export const CatalogPage: React.FC = () => {
       result = result.filter((p) => p.totalStock > 0);
     }
 
-    // Size
+    // Size (check both p.sizes and variant sizes in stock)
     if (selectedSizeFilter !== 'all') {
-      result = result.filter((p) => p.sizes?.includes(selectedSizeFilter));
+      result = result.filter(
+        (p) =>
+          p.sizes?.includes(selectedSizeFilter) ||
+          p.variants?.some((v) => v.size === selectedSizeFilter && v.stock > 0)
+      );
     }
 
     // Color

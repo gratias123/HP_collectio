@@ -82,6 +82,24 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// 1.b CRITICAL SECURITY: Strictly block any public HTTP access to database files, backups, and internal scripts
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const url = req.path.toLowerCase();
+  if (
+    url.startsWith('/data') ||
+    url.startsWith('/backups') ||
+    url.startsWith('/scripts') ||
+    url.startsWith('/server') ||
+    url.startsWith('/.env') ||
+    url.includes('store.json') ||
+    url.includes('.bak') ||
+    url.includes('firebase-blueprint')
+  ) {
+    return res.status(403).json({ error: 'Accès strictement interdit aux ressources système internes' });
+  }
+  next();
+});
+
 // 2. Serve uploaded files and public assets statically with caching and security
 app.use(
   '/uploads',
@@ -125,6 +143,7 @@ interface DatabaseSchema {
     fullName: string;
     passwordHash: string;
     salt: string;
+    algorithm?: 'scrypt' | 'pbkdf2';
     createdAt: string;
   }>;
   sessions: Array<{
@@ -135,26 +154,65 @@ interface DatabaseSchema {
   }>;
 }
 
-// Password hashing helper using Node crypto
-function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
-  const generatedSalt = salt || crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, generatedSalt, 1000, 64, 'sha512').toString('hex');
-  return { hash, salt: generatedSalt };
+// Modern cryptographic password hashing using Node.js scrypt (memory-hard, GPU-resistant)
+function hashPassword(password: string, salt?: string): { hash: string; salt: string; algorithm: 'scrypt' } {
+  const generatedSalt = salt || crypto.randomBytes(32).toString('hex');
+  const derivedKey = crypto.scryptSync(password, generatedSalt, 64, {
+    N: 16384,
+    r: 8,
+    p: 1,
+    maxmem: 32 * 1024 * 1024,
+  });
+  return { hash: derivedKey.toString('hex'), salt: generatedSalt, algorithm: 'scrypt' };
 }
 
-// Ensure standard administrator account exists
+// Timing-safe password verification supporting modern scrypt and legacy PBKDF2 migration
+function verifyPassword(
+  attempt: string,
+  user: { passwordHash: string; salt: string; algorithm?: string }
+): { isValid: boolean; needsUpgrade: boolean } {
+  try {
+    // 1. Check with modern scrypt
+    const scryptHash = crypto.scryptSync(attempt, user.salt, 64, {
+      N: 16384,
+      r: 8,
+      p: 1,
+      maxmem: 32 * 1024 * 1024,
+    }).toString('hex');
+
+    const scryptBuf = Buffer.from(scryptHash, 'hex');
+    const userBuf = Buffer.from(user.passwordHash, 'hex');
+    if (scryptBuf.length === userBuf.length && crypto.timingSafeEqual(scryptBuf, userBuf)) {
+      return { isValid: true, needsUpgrade: false };
+    }
+
+    // 2. Check legacy PBKDF2 (1000 iterations) for seamless upgrade
+    const pbkdf2Hash = crypto.pbkdf2Sync(attempt, user.salt, 1000, 64, 'sha512').toString('hex');
+    const pbkdf2Buf = Buffer.from(pbkdf2Hash, 'hex');
+    if (pbkdf2Buf.length === userBuf.length && crypto.timingSafeEqual(pbkdf2Buf, userBuf)) {
+      return { isValid: true, needsUpgrade: true };
+    }
+
+    return { isValid: false, needsUpgrade: false };
+  } catch {
+    return { isValid: false, needsUpgrade: false };
+  }
+}
+
+// Bootstrap initial admin ONLY if explicit env vars are provided and database is empty (no hardcoded credentials)
 function ensureDefaultAdmin(adminUsers: DatabaseSchema['adminUsers']) {
-  const defaultEmail = 'admin@hpcollection.bj';
-  if (!adminUsers.some((u) => u.email === defaultEmail)) {
-    const { hash, salt } = hashPassword('AdminHP2026!');
+  if (adminUsers.length === 0 && process.env.ADMIN_INITIAL_EMAIL && process.env.ADMIN_INITIAL_PASSWORD) {
+    const { hash, salt, algorithm } = hashPassword(process.env.ADMIN_INITIAL_PASSWORD);
     adminUsers.push({
-      id: 'admin-default-root',
-      email: defaultEmail,
-      fullName: 'Directeur HP COLLECTION',
+      id: `admin-${Date.now()}`,
+      email: process.env.ADMIN_INITIAL_EMAIL.trim().toLowerCase(),
+      fullName: process.env.ADMIN_INITIAL_NAME || 'Administrateur HP COLLECTION',
       passwordHash: hash,
       salt,
+      algorithm,
       createdAt: new Date().toISOString(),
     });
+    console.log(`[Admin Security] Compte administrateur initial configuré pour ${process.env.ADMIN_INITIAL_EMAIL}`);
   }
 }
 
@@ -319,29 +377,47 @@ function createBackupSnapshot(reason: string = 'auto'): string | null {
   }
 }
 
+let inMemoryDbCache: DatabaseSchema | null = null;
+
 function saveDatabase(db: DatabaseSchema) {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
+  inMemoryDbCache = db;
 
-  // Rolling backup every 15 minutes upon writes
-  const nowMs = Date.now();
-  if (nowMs - lastRollingBackupTime > 15 * 60 * 1000) {
-    createBackupSnapshot('rolling');
-    lastRollingBackupTime = nowMs;
-  }
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
 
-  // POSIX Atomic Write: write to temporary file, flush to storage, atomic rename
-  const tempPath = path.join(
-    DATA_DIR,
-    `store.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}.json`
-  );
-  const data = JSON.stringify(db, null, 2);
-  const fd = fs.openSync(tempPath, 'w');
-  fs.writeSync(fd, data, 0, 'utf-8');
-  fs.fsyncSync(fd);
-  fs.closeSync(fd);
-  fs.renameSync(tempPath, STORE_FILE);
+    // Rolling backup every 15 minutes upon writes
+    const nowMs = Date.now();
+    if (nowMs - lastRollingBackupTime > 15 * 60 * 1000) {
+      createBackupSnapshot('rolling');
+      lastRollingBackupTime = nowMs;
+    }
+
+    // POSIX Atomic Write: write to temporary file, flush to storage, atomic rename
+    const tempPath = path.join(
+      DATA_DIR,
+      `store.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}.json`
+    );
+    const data = JSON.stringify(db, null, 2);
+    const fd = fs.openSync(tempPath, 'w');
+    fs.writeSync(fd, data, 0, 'utf-8');
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fs.renameSync(tempPath, STORE_FILE);
+  } catch (err: any) {
+    // Graceful handling for read-only serverless filesystems (Vercel lambda / cloud functions)
+    if (err.code === 'EROFS' || err.code === 'EACCES') {
+      try {
+        const tmpPath = path.join('/tmp', 'hp_store.json');
+        fs.writeFileSync(tmpPath, JSON.stringify(db, null, 2), 'utf-8');
+      } catch (tmpErr) {
+        // Kept safely in inMemoryDbCache
+      }
+    } else {
+      console.error('[Storage Error] Failed to persist store to disk:', err.message);
+    }
+  }
 }
 
 // Admin Auth Middleware
@@ -1426,7 +1502,39 @@ app.get('/api/orders/track', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Aucune commande trouvée avec ces identifiants' });
   }
 
-  res.json({ order });
+  // Mask sensitive customer personal information for privacy
+  const rawPhone = order.customer.phone;
+  const digits = rawPhone.replace(/[^0-9]/g, '');
+  const maskedPhone =
+    digits.length >= 8
+      ? `${rawPhone.slice(0, Math.max(0, rawPhone.length - 6))}•• •• ${digits.slice(-2)}`
+      : rawPhone;
+
+  const rawEmail = order.customer.email;
+  const maskedEmail = rawEmail
+    ? rawEmail.replace(/(.{2})(.*)(@.*)/, '$1••••$3')
+    : undefined;
+
+  const rawAddress = order.customer.address;
+  const maskedAddress = rawAddress
+    ? rawAddress.length > 10
+      ? `${rawAddress.slice(0, 8)}...`
+      : rawAddress
+    : undefined;
+
+  const safeOrder = {
+    ...order,
+    customer: {
+      fullName: order.customer.fullName,
+      phone: maskedPhone,
+      email: maskedEmail,
+      city: order.customer.city,
+      district: order.customer.district,
+      address: maskedAddress,
+    },
+  };
+
+  res.json({ order: safeOrder });
 });
 
 // Admin Orders List & Filter
@@ -1694,8 +1802,87 @@ app.post('/api/payments/fedapay/create-transaction', async (req: Request, res: R
   });
 });
 
-// FedaPay Demo Confirmation endpoint (to simulate mobile money push confirmation)
+// Direct server-to-server transaction verification against FedaPay API
+app.get('/api/payments/fedapay/verify-transaction/:transactionId', async (req: Request, res: Response) => {
+  const { transactionId } = req.params;
+  const db = getDatabase();
+  const secretKey = process.env.FEDAPAY_SECRET_KEY || db.storeSettings.fedapaySecretKey;
+  const isSandbox = db.storeSettings.fedapaySandbox;
+
+  if (!secretKey || secretKey.trim().length < 10) {
+    return res.status(400).json({ error: 'Clé secrète FedaPay non configurée sur le serveur' });
+  }
+
+  try {
+    const fedaUrl = isSandbox
+      ? `https://sandbox-api.fedapay.com/v1/transactions/${transactionId}`
+      : `https://api.fedapay.com/v1/transactions/${transactionId}`;
+
+    const response = await fetch(fedaUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secretKey.trim()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: 'Transaction FedaPay introuvable ou erreur API',
+        details: data,
+      });
+    }
+
+    const tx = data.v1?.transaction || data.transaction || data;
+    const isApproved = tx.status === 'approved';
+
+    // If transaction is approved, update order in db if present
+    const order = db.orders.find(
+      (o) =>
+        o.fedapayTransactionId === String(transactionId) ||
+        (tx.reference && o.orderNumber === tx.reference) ||
+        (tx.custom_metadata?.orderNumber && o.orderNumber === tx.custom_metadata.orderNumber)
+    );
+
+    if (order && isApproved && order.paymentStatus !== 'paid') {
+      order.paymentStatus = 'paid';
+      order.fedapayTransactionId = String(transactionId);
+      order.updatedAt = new Date().toISOString();
+      order.statusHistory.unshift({
+        status: 'paid',
+        type: 'payment',
+        timestamp: new Date().toISOString(),
+        note: `Paiement vérifié avec succès via interrogation directe FedaPay API (Tx #${transactionId})`,
+        updatedBy: 'FedaPay Server API Verification',
+      });
+      saveDatabase(db);
+    }
+
+    return res.json({
+      verified: true,
+      status: tx.status,
+      isApproved,
+      amount: tx.amount,
+      orderNumber: order?.orderNumber,
+      paymentStatus: order?.paymentStatus || (isApproved ? 'paid' : 'pending'),
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      error: 'Impossible de vérifier la transaction auprès de FedaPay',
+      details: err.message,
+    });
+  }
+});
+
+// FedaPay Demo Confirmation endpoint (to simulate mobile money push confirmation in test environment)
 app.post('/api/payments/fedapay/confirm-demo', (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production' && !process.env.ENABLE_FEDAPAY_DEMO) {
+    return res.status(403).json({
+      error: 'Le simulateur de démonstration Mobile Money est désactivé en production. Utilisez les webhooks FedaPay officiels.',
+    });
+  }
+
   const { orderId, success } = req.body;
   const db = getDatabase();
   const order = db.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
@@ -1767,6 +1954,22 @@ app.post('/api/payments/fedapay/confirm-demo', (req: Request, res: Response) => 
 app.post('/api/payments/fedapay/webhook', async (req: Request, res: Response) => {
   const event = req.body;
   const signature = req.headers['x-fedapay-signature'] || req.headers['fedapay-signature'];
+
+  // Verify HMAC signature if secret is defined
+  const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET;
+  if (webhookSecret && signature) {
+    try {
+      const hmac = crypto.createHmac('sha256', webhookSecret.trim());
+      const rawPayload = JSON.stringify(req.body);
+      const calculated = hmac.update(rawPayload).digest('hex');
+      const cleanSig = String(signature).replace(/^sha256=/, '');
+      if (cleanSig !== calculated && !cleanSig.includes(calculated)) {
+        console.warn('[FedaPay Webhook] Alerte: divergence de signature sur le webhook entrant');
+      }
+    } catch (sigErr) {
+      console.error('[FedaPay Webhook] Erreur de vérification signature:', sigErr);
+    }
+  }
 
   if (!event || (!event.name && !event.event && !event.status)) {
     return res.status(400).json({ error: 'Payload de webhook FedaPay invalide' });
@@ -2041,7 +2244,7 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
   const now = Date.now();
   const attempt = loginAttempts.get(clientIp);
 
-  if (attempt && now < attempt.resetAt && attempt.count >= 10) {
+  if (attempt && now < attempt.resetAt && attempt.count >= 5) {
     const minutesLeft = Math.ceil((attempt.resetAt - now) / 60000);
     return res.status(429).json({
       error: `Trop de tentatives de connexion échouées. Par sécurité, l'accès est bloqué pendant ${minutesLeft} minute(s).`,
@@ -2056,12 +2259,13 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
   const db = getDatabase();
   const admin = db.adminUsers.find((u) => u.email === email.trim().toLowerCase());
 
-  const isMasterPassword = password === 'AdminHP2026!';
   let isValid = false;
+  let needsUpgrade = false;
 
   if (admin) {
-    const { hash } = hashPassword(password, admin.salt);
-    isValid = isMasterPassword || hash === admin.passwordHash;
+    const check = verifyPassword(password, admin);
+    isValid = check.isValid;
+    needsUpgrade = check.needsUpgrade;
   }
 
   if (!isValid || !admin) {
@@ -2071,7 +2275,15 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
     } else {
       current.count += 1;
     }
-    return res.status(401).json({ error: 'Identifiants incorrects' });
+    return res.status(401).json({ error: 'Identifiants administrateur incorrects' });
+  }
+
+  // Automatic upgrade to modern scrypt hash if legacy format
+  if (needsUpgrade) {
+    const upgraded = hashPassword(password);
+    admin.passwordHash = upgraded.hash;
+    admin.salt = upgraded.salt;
+    admin.algorithm = 'scrypt';
   }
 
   // Reset rate limit on success
@@ -2080,13 +2292,13 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
   // Clean expired sessions
   db.sessions = db.sessions.filter((s) => s.expiresAt > now);
 
-  // Create session
+  // Create session with 24h duration (OWASP compliant session window)
   const token = crypto.randomBytes(32).toString('hex');
   db.sessions.push({
     token,
     userId: admin.id,
     role: 'admin',
-    expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 7,
+    expiresAt: Date.now() + 1000 * 60 * 60 * 24, // 24 hours
   });
 
   saveDatabase(db);
@@ -2094,6 +2306,45 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
     token,
     admin: { id: admin.id, email: admin.email, fullName: admin.fullName },
   });
+});
+
+// Admin Logout (Explicit Server-Side Session Revocation)
+app.post('/api/admin/logout', requireAdmin, (req: Request, res: Response) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const db = getDatabase();
+  db.sessions = db.sessions.filter((s) => s.token !== token);
+  saveDatabase(db);
+  res.json({ success: true, message: 'Session administrateur révoquée avec succès' });
+});
+
+// Admin Password Change
+app.post('/api/admin/change-password', requireAdmin, (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: 'Le nouveau mot de passe doit comporter au moins 8 caractères' });
+  }
+
+  const db = getDatabase();
+  const adminId = (req as any).adminUserId;
+  const admin = db.adminUsers.find((u) => u.id === adminId);
+  if (!admin) return res.status(401).json({ error: 'Compte administrateur introuvable' });
+
+  const { isValid } = verifyPassword(currentPassword, admin);
+  if (!isValid) {
+    return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+  }
+
+  const upgraded = hashPassword(newPassword);
+  admin.passwordHash = upgraded.hash;
+  admin.salt = upgraded.salt;
+  admin.algorithm = 'scrypt';
+
+  // Revoke all other active sessions for security
+  const currentToken = req.headers.authorization?.split(' ')[1];
+  db.sessions = db.sessions.filter((s) => s.token === currentToken);
+
+  saveDatabase(db);
+  res.json({ success: true, message: 'Mot de passe administrateur mis à jour avec succès' });
 });
 
 // Verify Admin Session
@@ -3437,7 +3688,12 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+export { app };
+export default app;
+
+if (process.env.VERCEL !== '1') {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}

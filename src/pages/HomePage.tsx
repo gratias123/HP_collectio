@@ -7,7 +7,6 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Shuffle,
   Camera,
   Truck,
   RotateCcw,
@@ -21,39 +20,21 @@ export const HomePage: React.FC = () => {
 
   // Hero Slider with multiple articles & smooth transitions
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isRandomMode, setIsRandomMode] = useState(true);
-
-  // Helper to pick next slide (random or sequential)
-  const getNextSlideIndex = (current: number, total: number, random: boolean) => {
-    if (total <= 1) return 0;
-    if (random) {
-      let next = Math.floor(Math.random() * total);
-      while (next === current && total > 1) {
-        next = Math.floor(Math.random() * total);
-      }
-      return next;
-    }
-    return (current + 1) % total;
-  };
 
   // Auto transition for hero slider every 6 seconds
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => getNextSlideIndex(prev, LOOKBOOK_OUTFITS.length, isRandomMode));
+      setCurrentSlide((prev) => (prev + 1) % LOOKBOOK_OUTFITS.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [isRandomMode]);
+  }, []);
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => getNextSlideIndex(prev, LOOKBOOK_OUTFITS.length, isRandomMode));
+    setCurrentSlide((prev) => (prev + 1) % LOOKBOOK_OUTFITS.length);
   };
 
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + LOOKBOOK_OUTFITS.length) % LOOKBOOK_OUTFITS.length);
-  };
-
-  const triggerRandomSlide = () => {
-    setCurrentSlide((prev) => getNextSlideIndex(prev, LOOKBOOK_OUTFITS.length, true));
   };
 
   const activeLook = LOOKBOOK_OUTFITS[currentSlide];
@@ -177,43 +158,7 @@ export const HomePage: React.FC = () => {
         ))}
 
         {/* Hero Overlay Content */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10 sm:py-16 flex flex-col justify-between min-h-[80vh] lg:min-h-[85vh]">
-          {/* Top Bar: Drop Metadata & Slide Mode */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2.5 px-3 py-1 bg-[#141414]/90 border border-[#2e2e2e]">
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#C7A747] font-semibold">
-                Collection 2026
-              </span>
-              <span className="text-[10px] font-mono text-[#777D86] border-l border-[#333] pl-2">
-                {String(currentSlide + 1).padStart(2, '0')} / {String(LOOKBOOK_OUTFITS.length).padStart(2, '0')}
-              </span>
-            </div>
-
-            {/* Random / Sequential Mode Selector */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsRandomMode(!isRandomMode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider backdrop-blur-md border transition-all ${
-                  isRandomMode
-                    ? 'bg-[#C7A747]/20 text-[#C7A747] border-[#C7A747]/60 shadow-sm'
-                    : 'bg-[#141414]/85 text-[#777D86] border-[#2e2e2e] hover:text-[#F4F1E9]'
-                }`}
-                title="Activer ou désactiver le défilement aléatoire"
-              >
-                <Shuffle className={`w-3 h-3 ${isRandomMode ? 'text-[#C7A747]' : ''}`} />
-                <span className="hidden sm:inline">{isRandomMode ? 'Défilement Aléatoire' : 'Séquentiel'}</span>
-              </button>
-
-              <button
-                onClick={triggerRandomSlide}
-                className="p-1.5 bg-[#141414]/85 hover:bg-[#202020] text-[#C7A747] border border-[#2e2e2e] transition-colors"
-                title="Tirer un look au hasard"
-              >
-                <Shuffle className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10 sm:py-16 flex flex-col justify-end min-h-[80vh] lg:min-h-[85vh]">
           {/* Main Hero Hook & Purchase Action */}
           <div className="space-y-6 max-w-2xl mt-auto pb-4">
             <div className="inline-block px-3 py-1 bg-[#C7A747] text-[#141414] text-[10px] font-mono font-black uppercase tracking-widest">
@@ -250,48 +195,37 @@ export const HomePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Thumbnails & Slide Controls */}
-          <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            {/* Visual miniatures of the looks (Smooth horizontal reel) */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none max-w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl">
-              {LOOKBOOK_OUTFITS.map((look, idx) => (
+          {/* Sleek Minimalist Luxury Slide Indicators & Nav */}
+          <div className="pt-4 flex items-center justify-between gap-4">
+            {/* Minimal Luxury Dashes */}
+            <div className="flex items-center gap-1.5 overflow-hidden max-w-[240px] sm:max-w-none">
+              {LOOKBOOK_OUTFITS.map((_, idx) => (
                 <button
-                  key={look.id}
+                  key={idx}
                   onClick={() => setCurrentSlide(idx)}
-                  className={`relative w-12 h-14 sm:w-14 sm:h-16 flex-shrink-0 border-2 overflow-hidden transition-all duration-300 ${
+                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${
                     idx === currentSlide
-                      ? 'border-[#C7A747] scale-105 shadow-lg'
-                      : 'border-[#2d2d2d] opacity-50 hover:opacity-100 hover:border-[#666]'
+                      ? 'w-7 sm:w-8 bg-[#C7A747]'
+                      : 'w-2 bg-white/25 hover:bg-white/50'
                   }`}
-                  title={look.title}
-                >
-                  <img
-                    src={look.image}
-                    alt={`${look.title} aperçu silhouette`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  {idx === currentSlide && (
-                    <div className="absolute inset-0 border border-[#C7A747] bg-[#C7A747]/10" />
-                  )}
-                </button>
+                  aria-label={`Look ${idx + 1}`}
+                />
               ))}
             </div>
 
-            {/* Arrows */}
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+            {/* Discreet Prev / Next */}
+            <div className="flex items-center gap-2">
               <button
                 onClick={prevSlide}
-                className="p-2.5 bg-[#141414]/90 hover:bg-[#202020] text-[#F4F1E9] border border-[#2e2e2e] transition-colors"
-                aria-label="Article précédent"
+                className="w-9 h-9 rounded-full bg-[#141414]/90 hover:bg-[#202020] text-[#F4F1E9] border border-[#2e2e2e] hover:border-[#C7A747] transition-all flex items-center justify-center cursor-pointer active:scale-95 shadow-md"
+                aria-label="Look précédent"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={nextSlide}
-                className="p-2.5 bg-[#141414]/90 hover:bg-[#202020] text-[#F4F1E9] border border-[#2e2e2e] transition-colors"
-                aria-label="Article suivant"
+                className="w-9 h-9 rounded-full bg-[#141414]/90 hover:bg-[#202020] text-[#F4F1E9] border border-[#2e2e2e] hover:border-[#C7A747] transition-all flex items-center justify-center cursor-pointer active:scale-95 shadow-md"
+                aria-label="Look suivant"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
