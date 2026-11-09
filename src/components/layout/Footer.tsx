@@ -1,13 +1,11 @@
 import React from 'react';
 import { useStore } from '../../context/StoreContext';
-import { CATEGORIES } from '../../data/initialData';
 
 export const Footer: React.FC = () => {
-  const { setCurrentPage, setCategoryFilter, settings } = useStore();
+  const { setCurrentPage, settings } = useStore();
 
-  const handleNav = (page: string, category: string = 'all') => {
+  const handleNav = (page: string) => {
     setCurrentPage(page);
-    setCategoryFilter(category);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -60,64 +58,9 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* Legal & Service Navigation Links */}
-        <div className="mt-8 pt-6 border-t border-[#1a1a1a] flex flex-wrap gap-x-6 gap-y-2 text-xs font-mono">
-          <button
-            onClick={() => handleNav('delivery-info')}
-            className="hover:text-[#C7A747] transition-colors text-[#777D86]"
-          >
-            Livraison au Bénin
-          </button>
-          <button
-            onClick={() => handleNav('returns')}
-            className="hover:text-[#C7A747] transition-colors text-[#777D86]"
-          >
-            Retours & Réclamations
-          </button>
-          <button
-            onClick={() => handleNav('legal')}
-            className="hover:text-[#C7A747] transition-colors text-[#777D86]"
-          >
-            Conditions Générales (CGV)
-          </button>
-          <button
-            onClick={() => handleNav('privacy')}
-            className="hover:text-[#C7A747] transition-colors text-[#777D86]"
-          >
-            Confidentialité des Données
-          </button>
-          <button
-            onClick={() => handleNav('mentions')}
-            className="hover:text-[#C7A747] transition-colors text-[#777D86]"
-          >
-            Mentions Légales & Réglementaires
-          </button>
-          <button
-            onClick={() => handleNav('contact')}
-            className="hover:text-[#C7A747] transition-colors text-[#777D86]"
-          >
-            Contact & FAQ
-          </button>
-        </div>
-
-        {/* Bottom row with payment pills */}
-        <div className="mt-6 pt-6 border-t border-[#1f1f1f] flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] font-mono">
+        {/* Bottom copyright row */}
+        <div className="mt-8 pt-6 border-t border-[#1a1a1a] flex items-center justify-between text-[11px] font-mono">
           <p>© {new Date().getFullYear()} HP COLLECTION. Bénin.</p>
-          <div className="flex flex-wrap items-center gap-2 text-[10px]">
-            <span className="text-[#555]">Paiements :</span>
-            <span className="px-2 py-0.5 bg-[#171717] border border-[#262626] text-[#F4F1E9]">
-              Espèces à la livraison
-            </span>
-            <span className="px-2 py-0.5 bg-[#171717] border border-[#262626] text-[#F4F1E9]">
-              MTN Mobile Money
-            </span>
-            <span className="px-2 py-0.5 bg-[#171717] border border-[#262626] text-[#F4F1E9]">
-              Moov Money
-            </span>
-            <span className="px-2 py-0.5 bg-[#171717] border border-[#262626] text-[#F4F1E9]">
-              Celtiis Cash
-            </span>
-          </div>
         </div>
       </div>
     </footer>
