@@ -5445,10 +5445,24 @@
       "id": "admin-1793209670972",
       "email": "semakodeogratias64@gmail.com",
       "fullName": "Deo Gratias",
-      "passwordHash": "90cb80fce36b0f251cd03a72a4558c1724f7cd6343ae386b9ecda6e2711a93782abfd9d1e420f07f7152d375fc2a77d7ae53eb04865237afb5abca092d1969ff",
-      "salt": "c8bf07abffb582d4bfcffe76990e5a22",
-      "createdAt": "2026-10-28T17:47:50.972Z"
+      "passwordHash": "f85ef75f52759e59aba3f2c2e17620b0e9b72f546f891d6b400e92f2892198ab6e1015be8663899faad3bb59f92c122564c8e574f356a31368736d235181b450",
+      "salt": "17f4851af28a08b3f1ed9204060752c6a9e517237eb48e33c6b534c362153e9f",
+      "createdAt": "2026-10-28T17:47:50.972Z",
+      "algorithm": "scrypt"
     }
   ],
-  "sessions": []
+  "sessions": [
+    {
+      "token": "3a59c00706d906978520dd30012bf2e15d9007722c822c2a026b25fbca822f98",
+      "userId": "admin-1793209670972",
+      "role": "admin",
+      "expiresAt": 1794414821211
+    },
+    {
+      "token": "c3b5a45a8aa9997a247e0eca5e88aef324372c7ac7c1afbadad601a21e72c236",
+      "userId": "admin-1793209670972",
+      "role": "admin",
+      "expiresAt": 1794414872441
+    }
+  ]
 }
